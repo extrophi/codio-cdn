@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/content-id",
+    "crates/codio-content",
     "crates/common",
     "crates/dht",
     "crates/cli",
