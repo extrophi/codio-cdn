@@ -519,6 +519,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "codio-chunk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "codio-common",
+ "codio-content-id",
+ "codio-dht",
+ "futures",
+ "rand 0.8.5",
+ "serde",
+ "sha2",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "codio-common"
 version = "0.1.0"
 dependencies = [

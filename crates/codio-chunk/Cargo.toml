@@ -1,0 +1,21 @@
+[package]
+name = "codio-chunk"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+codio-content-id = { path = "../content-id" }
+codio-common = { path = "../common" }
+codio-dht = { path = "../dht" }
+tokio = { version = "1.35", features = ["full"] }
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+futures = "0.3"
+rand = "0.8"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tracing-subscriber = "0.3"
