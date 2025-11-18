@@ -1,0 +1,38 @@
+[workspace]
+members = [
+    "crates/content-id",
+    "crates/common",
+    "crates/dht",
+    "crates/cli",
+]
+resolver = "2"
+
+[package]
+name = "codio-cdn-workspace"
+version = "0.1.0"
+edition = "2021"
+authors = ["Codio Collective"]
+license = "MIT"
+publish = false
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Codio Collective"]
+license = "MIT"
+
+[workspace.dependencies]
+sha2 = "0.10"
+bs58 = "0.5"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.35", features = ["full"] }
+
+# Dependencies for integration tests
+[dev-dependencies]
+codio-content-id = { path = "crates/content-id" }
+codio-dht = { path = "crates/dht" }
+codio-common = { path = "crates/common" }
+tokio = { workspace = true }
+assert_cmd = "2.0"
+predicates = "3.0"
+tempfile = "3.8"
