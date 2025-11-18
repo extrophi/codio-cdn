@@ -43,10 +43,8 @@ impl ContentId {
     }
 }
 
-impl FromStr for ContentId {
-    type Err = CidError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    /// Parse CID from string
+    pub fn parse(s: &str) -> Result<Self, CidError> {
         if !s.starts_with("Qm") {
             return Err(CidError::InvalidFormat);
         }
@@ -67,6 +65,14 @@ impl FromStr for ContentId {
             hash,
             multibase: s.to_string(),
         })
+    }
+}
+
+impl FromStr for ContentId {
+    type Err = CidError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s)
     }
 }
 
