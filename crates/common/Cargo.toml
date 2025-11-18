@@ -1,0 +1,8 @@
+[package]
+name = "codio-common"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+codio-content-id = { path = "../content-id" }
+serde.workspace = true
