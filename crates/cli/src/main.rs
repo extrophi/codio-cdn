@@ -1,9 +1,9 @@
 use clap::{Parser, Subcommand};
 use codio_content_id::ContentId;
-use codio_dht::{DhtNode, DhtConfig, DhtEvent};
+use codio_dht::{DhtConfig, DhtEvent, DhtNode};
 use colored::Colorize;
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "codio-cdn")]
@@ -52,9 +52,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Setup logging
     let log_level = if cli.verbose { "debug" } else { "info" };
-    tracing_subscriber::fmt()
-        .with_env_filter(log_level)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(log_level).init();
 
     match cli.command {
         Commands::Publish { path, announce } => {
@@ -80,7 +78,11 @@ async fn publish_content(path: PathBuf, announce: bool) -> anyhow::Result<()> {
 
     // Generate CID
     let cid = ContentId::new(&content);
-    println!("  {} Generated CID: {}", "✓".green(), cid.to_string().bright_blue());
+    println!(
+        "  {} Generated CID: {}",
+        "✓".green(),
+        cid.to_string().bright_blue()
+    );
 
     // Announce to DHT if requested
     if announce {

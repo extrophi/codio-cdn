@@ -1,13 +1,10 @@
-use libp2p::{
-    kad::{
-        store::MemoryStore, Config as KademliaConfig, Event as KademliaEvent,
-       QueryResult,
-    },
-    swarm::{Swarm, SwarmEvent},
-    PeerId, Multiaddr, SwarmBuilder,
-};
-use libp2p::kad::Behaviour as Kademlia;
 use codio_content_id::ContentId;
+use libp2p::kad::Behaviour as Kademlia;
+use libp2p::{
+    kad::{store::MemoryStore, Config as KademliaConfig, Event as KademliaEvent, QueryResult},
+    swarm::{Swarm, SwarmEvent},
+    Multiaddr, PeerId, SwarmBuilder,
+};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
@@ -47,16 +44,16 @@ pub enum DhtEvent {
         providers: Vec<PeerId>,
     },
     /// Content announcement successful
-    ProvideSuccess {
-        cid: ContentId,
-    },
+    ProvideSuccess { cid: ContentId },
     /// Bootstrap completed
     BootstrapComplete,
 }
 
 impl DhtNode {
     /// Create new DHT node
-    pub async fn new(config: DhtConfig) -> anyhow::Result<(Self, mpsc::UnboundedReceiver<DhtEvent>)> {
+    pub async fn new(
+        config: DhtConfig,
+    ) -> anyhow::Result<(Self, mpsc::UnboundedReceiver<DhtEvent>)> {
         // Generate keypair
         let local_key = libp2p::identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
@@ -93,10 +90,7 @@ impl DhtNode {
         // Event channel
         let (event_tx, event_rx) = mpsc::unbounded_channel();
 
-        Ok((
-            DhtNode { swarm, event_tx },
-            event_rx
-        ))
+        Ok((DhtNode { swarm, event_tx }, event_rx))
     }
 
     /// Start listening on address
@@ -143,10 +137,9 @@ impl DhtNode {
                         let cid = ContentId::new(dummy_content);
                         let providers: Vec<PeerId> = vec![];
 
-                        let _ = self.event_tx.send(DhtEvent::ProvidersFound {
-                            cid,
-                            providers,
-                        });
+                        let _ = self
+                            .event_tx
+                            .send(DhtEvent::ProvidersFound { cid, providers });
                     }
                     QueryResult::StartProviding(Ok(_)) => {
                         // Provider record published
