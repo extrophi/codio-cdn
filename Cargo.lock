@@ -527,6 +527,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "codio-content"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bs58",
+ "bytes",
+ "criterion",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "codio-content-id"
 version = "0.1.0"
 dependencies = [
