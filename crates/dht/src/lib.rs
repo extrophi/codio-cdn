@@ -1,72 +1,12 @@
-// Kademlia DHT implementation for Codio CDN
-//
-// This module provides a distributed hash table for peer discovery and content routing.
-// It uses libp2p's Kademlia implementation with custom provider tracking and management.
-//
-// # Architecture
-//
-// The DHT uses the Kademlia protocol for:
-// - Peer discovery: Finding nodes in the network
-// - Content routing: Locating providers of specific content
-// - Provider records: Announcing and tracking content availability
-//
-// # Key Concepts
-//
-// ## XOR Distance Metric
-// Kademlia uses XOR distance to measure "closeness" between node IDs and content keys.
-// This creates a structured overlay network where nodes store information about content
-// whose keys are "close" to their own ID.
-//
-// ## K-Buckets
-// The routing table is organized into k-buckets, where each bucket contains up to k
-// peers at a specific XOR distance range.
-//
-// ## Provider Records
-// When a node has content, it announces itself as a provider to the k closest nodes
-// to the content's key. Other nodes can then query the DHT to find providers.
-//
-// # Usage
-//
-// ```rust,no_run
-// use codio_dht::{DHTManager, DHTConfig};
-// use codio_content_id::ContentId;
-//
-// # async fn example() -> anyhow::Result<()> {
-// // Create DHT manager
-// let config = DHTConfig::default();
-// let mut dht = DHTManager::new(config).await?;
-//
-// // Start listening
-// dht.listen("/ip4/0.0.0.0/tcp/0".parse()?).await?;
-//
-// // Announce content
-// let cid = ContentId::new(b"Hello, world!");
-// dht.provide(cid.clone()).await?;
-//
-// // Find providers
-// let providers = dht.find_providers(cid).await?;
-// # Ok(())
-// # }
-// ```
-
-use anyhow::{anyhow, Context, Result};
 use codio_content_id::ContentId;
-use futures::StreamExt;
 use libp2p::kad::Behaviour as Kademlia;
 use libp2p::{
-    identity::Keypair,
-    kad::{
-        store::MemoryStore, BootstrapOk, Config as KademliaConfig, Event as KademliaEvent,
-        GetClosestPeersOk, GetProvidersOk,
-        QueryResult, RecordKey,
-    },
+    kad::{store::MemoryStore, Config as KademliaConfig, Event as KademliaEvent, QueryResult},
     swarm::{Swarm, SwarmEvent},
     Multiaddr, PeerId, SwarmBuilder,
 };
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime};
-use tokio::sync::{mpsc, oneshot};
+use std::time::Duration;
+use tokio::sync::mpsc;
 
 pub mod config;
 pub use config::{ConfigError, DHTConfig};
@@ -296,118 +236,15 @@ pub enum DHTEvent {
 
     /// Content announcement successful
     ProvideSuccess { cid: ContentId },
-
-    /// Content announcement failed
-    ProvideFailed { cid: ContentId, error: String },
-
-    /// Bootstrap completed successfully
-    BootstrapComplete { num_peers: usize },
-
-    /// Bootstrap failed
-    BootstrapFailed { error: String },
-
-    /// Peer discovered
-    PeerDiscovered { peer: PeerInfo },
-
-    /// Peer addresses found
-    PeerAddressesFound {
-        peer_id: PeerId,
-        addresses: Vec<Multiaddr>,
-    },
-
-    /// Query completed
-    QueryCompleted { query_type: String, success: bool },
-
-    /// Provider record expired
-    ProviderExpired { cid: ContentId, provider: PeerId },
-
-    /// Routing table updated
-    RoutingTableUpdated { num_peers: usize },
-}
-
-/// Information about an active query
-#[derive(Debug)]
-#[allow(dead_code)]
-struct QueryInfo {
-    /// Type of query
-    query_type: QueryType,
-
-    /// When the query was started
-    started_at: SystemTime,
-
-    /// Response channel (if waiting for result)
-    response_tx: Option<oneshot::Sender<QueryResponse>>,
-}
-
-/// Type of DHT query
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(dead_code)]
-enum QueryType {
-    /// Finding providers for content
-    GetProviders { cid: ContentId },
-
-    /// Announcing content
-    StartProviding { cid: ContentId },
-
-    /// Finding a specific peer
-    FindPeer { peer_id: PeerId },
-
-    /// Finding closest peers to a key
-    GetClosestPeers { key: Vec<u8> },
-
-    /// Bootstrap query
-    Bootstrap,
-}
-
-/// Response from a DHT query
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-enum QueryResponse {
-    /// Providers found
-    Providers(Vec<PeerInfo>),
-
-    /// Provide operation completed
-    ProvideComplete,
-
-    /// Peer found
-    PeerFound(PeerInfo),
-
-    /// Closest peers found
-    ClosestPeers(Vec<PeerId>),
-
     /// Bootstrap completed
-    BootstrapComplete { num_peers: usize },
-
-    /// Query failed
-    Error(String),
+    BootstrapComplete,
 }
 
-impl DHTManager {
-    /// Create a new DHT manager
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - DHT configuration
-    ///
-    /// # Returns
-    ///
-    /// A new DHT manager instance
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use codio_dht::{DHTManager, DHTConfig};
-    ///
-    /// # async fn example() -> anyhow::Result<()> {
-    /// let config = DHTConfig::default();
-    /// let dht = DHTManager::new(config).await?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub async fn new(config: DHTConfig) -> Result<Self> {
-        // Validate configuration
-        config.validate().context("Invalid DHT configuration")?;
-
+impl DhtNode {
+    /// Create new DHT node
+    pub async fn new(
+        config: DhtConfig,
+    ) -> anyhow::Result<(Self, mpsc::UnboundedReceiver<DhtEvent>)> {
         // Generate keypair
         let local_key = Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
@@ -450,18 +287,7 @@ impl DHTManager {
         // Event channel
         let (event_tx, event_rx) = mpsc::unbounded_channel();
 
-        Ok(DHTManager {
-            swarm,
-            config,
-            peer_id: local_peer_id,
-            event_tx,
-            event_rx: Some(event_rx),
-            provider_records: Arc::new(Mutex::new(HashMap::new())),
-            local_providers: Arc::new(Mutex::new(HashSet::new())),
-            active_queries: Arc::new(Mutex::new(HashMap::new())),
-            stats: Arc::new(Mutex::new(DHTStats::default())),
-            last_republish: Arc::new(Mutex::new(SystemTime::now())),
-        })
+        Ok((DhtNode { swarm, event_tx }, event_rx))
     }
 
     /// Get the local peer ID
@@ -821,79 +647,19 @@ impl DHTManager {
         Vec::new()
     }
 
-    /// Get DHT statistics
-    ///
-    /// # Returns
-    ///
-    /// Current DHT statistics including peer count, query stats, etc.
-    pub fn stats(&self) -> DHTStats {
-        let stats = self.stats.lock().unwrap();
-        stats.clone()
-    }
-
-    /// Run the DHT event loop
-    ///
-    /// This should be called continuously to process DHT events.
-    /// It handles incoming queries, maintains the routing table,
-    /// and manages provider records.
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use codio_dht::DHTManager;
-    /// # async fn example(mut dht: DHTManager) {
-    /// tokio::spawn(async move {
-    ///     loop {
-    ///         dht.run_event_loop().await;
-    ///     }
-    /// });
-    /// # }
-    /// ```
-    pub async fn run_event_loop(&mut self) {
-        // Check if we need to republish
-        if self.config.auto_republish {
-            let should_republish = {
-                let last = self.last_republish.lock().unwrap();
-                SystemTime::now()
-                    .duration_since(*last)
-                    .map(|age| age > self.config.republish_interval)
-                    .unwrap_or(false)
-            };
-
-            if should_republish {
-                self.republish_content().await;
-            }
-        }
-
-        // Process swarm events
-        if let Some(event) = self.swarm.next().await {
-            self.handle_swarm_event(event).await;
-        }
-
-        // Clean up expired provider records
-        self.cleanup_expired_records();
-    }
-
-    /// Handle swarm events
-    async fn handle_swarm_event(&mut self, event: SwarmEvent<KademliaEvent>) {
-        match event {
-            SwarmEvent::Behaviour(kad_event) => {
-                self.handle_kademlia_event(kad_event).await;
-            }
-            SwarmEvent::NewListenAddr { address, .. } => {
-                tracing::info!("Listening on {}", address);
-            }
-            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                tracing::debug!("Connection established with {}", peer_id);
-
-                let mut stats = self.stats.lock().unwrap();
-                stats.num_peers += 1;
-            }
-            SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                tracing::debug!("Connection closed with {}", peer_id);
-
-                let mut stats = self.stats.lock().unwrap();
-                stats.num_peers = stats.num_peers.saturating_sub(1);
+                        let _ = self
+                            .event_tx
+                            .send(DhtEvent::ProvidersFound { cid, providers });
+                    }
+                    QueryResult::StartProviding(Ok(_)) => {
+                        // Provider record published
+                        tracing::debug!("Content announced to DHT");
+                    }
+                    QueryResult::Bootstrap(Ok(_)) => {
+                        let _ = self.event_tx.send(DhtEvent::BootstrapComplete);
+                    }
+                    _ => {}
+                }
             }
             _ => {}
         }
