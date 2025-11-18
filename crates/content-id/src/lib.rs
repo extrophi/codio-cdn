@@ -1,5 +1,6 @@
 use sha2::{Digest, Sha256};
 use std::fmt;
+use std::str::FromStr;
 
 /// Content Identifier (CID) using sha256 hash
 /// Format: Qm<base58(sha256(content))>
@@ -40,9 +41,12 @@ impl ContentId {
     pub fn hash(&self) -> &[u8; 32] {
         &self.hash
     }
+}
 
-    /// Parse CID from string
-    pub fn from_str(s: &str) -> Result<Self, CidError> {
+impl FromStr for ContentId {
+    type Err = CidError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         if !s.starts_with("Qm") {
             return Err(CidError::InvalidFormat);
         }

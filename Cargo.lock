@@ -548,9 +548,11 @@ dependencies = [
  "futures",
  "libp2p",
  "serde",
+ "thiserror 1.0.69",
  "tokio",
  "tokio-test",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
