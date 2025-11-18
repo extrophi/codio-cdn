@@ -5,7 +5,7 @@ members = [
     "crates/common",
     "crates/dht",
     "crates/cli",
-    "crates/codio-tracker",
+    "crates/codio-gateway",
 ]
 resolver = "2"
 
