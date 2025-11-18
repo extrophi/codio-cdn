@@ -1,0 +1,26 @@
+[package]
+name = "codio-network"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libp2p = { version = "0.53", features = [
+    "tcp",
+    "noise",
+    "yamux",
+    "mdns",
+    "kad",
+    "ping",
+    "identify",
+    "relay",
+    "tokio",
+    "macros",
+] }
+tokio = { version = "1.35", features = ["full"] }
+anyhow = "1.0"
+tracing = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+futures = "0.3"
+
+[dev-dependencies]
+tracing-subscriber = "0.3"
