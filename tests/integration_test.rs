@@ -1,5 +1,5 @@
 use codio_content_id::ContentId;
-use codio_dht::{DhtNode, DhtConfig};
+use codio_dht::{DhtConfig, DhtNode};
 use std::time::Duration;
 
 #[tokio::test]
@@ -15,8 +15,14 @@ async fn test_publish_retrieve_flow() {
     let (mut node2, mut rx2) = DhtNode::new(config2).await.unwrap();
 
     // Listen on different ports
-    node1.listen("/ip4/127.0.0.1/tcp/0".parse().unwrap()).await.unwrap();
-    node2.listen("/ip4/127.0.0.1/tcp/0".parse().unwrap()).await.unwrap();
+    node1
+        .listen("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+        .await
+        .unwrap();
+    node2
+        .listen("/ip4/127.0.0.1/tcp/0".parse().unwrap())
+        .await
+        .unwrap();
 
     // Create content
     let content = b"Test content for DHT";
